@@ -1,0 +1,60 @@
+version: "2"
+
+run:
+  timeout: 3m
+
+linters:
+  default: none
+  enable:
+    - errcheck      # missing error returns
+    - govet         # stdlib vet checks
+    - ineffassign   # dead assignments
+    - staticcheck   # catches common mistakes + style
+    - unused        # unreachable identifiers
+    - misspell      # common English typos
+    - unconvert     # redundant type conversions
+    - bodyclose     # http.Response.Body closes
+
+  settings:
+    errcheck:
+      # Ignoring the error on these calls is idiomatic:
+      # - Close() on any io.Closer / os.File / http body — best-effort cleanup
+      # - ResponseWriter.Write — error means client hung up; response is already committed
+      # - os.Setenv in env-file loaders — falls back to defaults silently
+      # - os.Remove / RemoveAll / MkdirAll — cleanup/scaffolding in tempdirs
+      # - fmt.Fprintf on ResponseWriter — HTML fallback pages; same as Write above
+      exclude-functions:
+        # .Close() — always best-effort cleanup (file/gzip/tar/http body…)
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (*net/http.Response).Body.Close
+        - (*net/http.Request).Body.Close
+        - (*compress/gzip.Reader).Close
+        - (*compress/gzip.Writer).Close
+        - (*archive/tar.Writer).Close
+        # ResponseWriter: response already committed; client-hangup isn't actionable
+        - (net/http.ResponseWriter).Write
+        # Env-file loaders: values always fallback to defaults
+        - os.Setenv
+        # FS scaffolding / cleanup in tempdirs
+        - os.Remove
+        - os.RemoveAll
+        - os.MkdirAll
+        # HTML fallback responses — same rationale as Write above
+        - fmt.Fprintf
+        - fmt.Fprintln
+        # JSON encode to ResponseWriter — see Write
+        - (*encoding/json.Encoder).Encode
+
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters: [errcheck]
+      # aws-sdk-go v1 is deprecated upstream; migration to v2 tracked separately
+      - path: internal/storage/r2\.go
+        linters: [staticcheck]
+        text: "SA1019"
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
